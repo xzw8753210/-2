@@ -1,0 +1,24 @@
+Js。
+Page({
+  data: {
+    chong:0
+  },
+  mu: function () {
+    this.setData({
+chong:this.data.chong+1
+    })
+  },
+Wxml。
+<view class="cao">
+  <view class="hua">护花使者</view>
+  <view class="shu">
+    <view>
+      <text>担任护花使者天数：</text ><text class="tu">{{chong}}</text>
+    </view>
+      <button bindtap="mu" class="mu">变身</button>
+    <button class="guo">呵护</button>
+    <button class="ye">歌唱</button>
+  </view>
+</view>
+<view style="background-image: url">
+</view>

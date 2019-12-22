@@ -1,0 +1,237 @@
+#include "arduino.h"
+  boolean key[NUM_DIGITAL_PINS];      //按键
+  boolean key_cache[NUM_DIGITAL_PINS];    //检测按键松开缓存
+  void key_init()
+  {
+    for (int a = 0; a < NUM_DIGITAL_PINS; a++)
+    {
+      key[a] = LOW;
+      key_cache[a] = HIGH;
+    }
+  }
+  boolean key_get(int _key_pin, boolean _key_type)
+  {
+    key_cache[_key_pin] = key[_key_pin];    //缓存作判断用
+  key[_key_pin] = !digitalRead(_key_pin); //触发时
+  switch (_key_type)
+    {
+      case 0:
+        if (!key[_key_pin] && key_cache[_key_pin])
+          return true;
+        else
+          return false;
+        break;
+      case 1:
+        if (key[_key_pin] && !key_cache[_key_pin])
+          return true;
+        else
+          return false;
+        break;
+    }
+}
+#include "arduino.h"
+  #include <SoftwareSerial.h>
+  SoftwareSerial mySerial(2, 3); // RX, TX
+  //#define AUDIO_PORT Serial1    //Core+
+  #define AUDIO_PORT mySerial  //Core
+  byte sn_reset[4]=
+  {
+    0x7E,0x02,0x0C,0xEF
+  };
+  byte sn_choose[6]=
+  {
+    0x7E,0x04,0x03,0x00,0x01,0xEF
+  };
+  byte sn_vol[5]=
+  {
+    0x7E,0x03,0x06,0x18,0xEF
+  };
+  byte sn_device[5]=
+  {
+    0x7E,0x03,0x09,0x01,0xEF  
+  };
+  byte sn_pause[4]=
+  {
+    0x7E,0x02,0x0E,0xEF
+  };
+  byte sn_play[4]=
+  {
+    0x7E,0x02,0x0D,0xEF
+  };
+  byte sn_mode[5]=
+  {
+    0x7E,0x03,0x11,0x00,0xEF
+  };
+  byte sn_down[4]=
+  {
+    0x7E,0x02,0x01,0xEF
+  };
+  byte sn_up[4]=
+  {
+    0x7E,0x02,0x02,0xEF
+  };
+  byte sn_eq[5]=
+  {
+    0x7E,0x03,0x07,0x01,0xEF
+  };
+  //-----------------------------
+  void audio_pause()
+  {
+    AUDIO_PORT.write(sn_pause,4);
+    delay(50);
+  }
+  void audio_play()
+  {
+    AUDIO_PORT.write(sn_play,4);
+    delay(50);
+  }
+  //play eq    (Normal/Pop/Rock/Jazz/Classic/Base)  0-5
+  void audio_eq(byte _audio_eq)
+  {
+    sn_mode[3]=_audio_eq;
+    AUDIO_PORT.write(sn_eq,5);
+    delay(100);
+  }
+  #define MODE_loopAll 0
+  #define MODE_loopOne 1
+  #define MODE_One_STOP 2
+  #define MODE_One_END  4
+  //play mode    (ALL/FOL/ONE/RAM/ONE_STOP)  0-4
+  void audio_mode(byte _audio_mode)
+  {
+    sn_mode[3]=_audio_mode;
+    AUDIO_PORT.write(sn_mode,5);
+    delay(100);
+  }
+  #define DEVICE_Flash  5
+  #define DEVICE_TF  1
+  //device select    (U/TF/AUX/SLEEP/FLASH)  0-4
+  void audio_device(byte _audio_device)
+  {
+    sn_device[3]=_audio_device;
+    AUDIO_PORT.write(sn_device,5);
+    delay(1500);
+  }
+  void audio_down()
+  {
+    AUDIO_PORT.write(sn_down,4);
+    delay(500);
+  }
+  void audio_up()
+  {
+    AUDIO_PORT.write(sn_up,4);
+    delay(500);
+  }
+  void audio_vol(byte _audio_vol)
+  {
+    sn_vol[3]=_audio_vol;
+    AUDIO_PORT.write(sn_vol,5);
+    delay(50);
+  }
+  void audio_choose(byte _audio_choose)
+  {
+    sn_choose[4]=_audio_choose;
+    AUDIO_PORT.write(sn_choose,6);
+    delay(100);
+  }
+  void audio_reset()
+  {
+    AUDIO_PORT.write(sn_reset,4);
+    delay(500);
+  }
+  void audio_init(int _audio_init_device,int _audio_init_mode,int _audio_init_vol)
+  {
+    AUDIO_PORT.begin(9600);
+    delay(500);
+    audio_reset();
+    audio_device(_audio_init_device);
+    audio_mode(_audio_init_mode);
+    audio_vol(_audio_init_vol);
+    //audio_pause();
+  }
+代码：
+#include "audio.h"//控制audio模块文件
+#include "key.h"//检测按键按下文件
+#include <SoftwareSerial.h>
+
+int music1_Pin = 4;
+int music2_Pin = 6;//按键控制引脚定义
+
+boolean play_pause;
+boolean play_change;//定义boolean型变量
+
+int music_vol = 30; //初始音量0~30
+
+void setup() {
+  // 初始化串口：
+  Serial.begin(9600);//初始化串口通信，并将波特率设为9600
+  pinMode(music1_Pin, INPUT);
+  pinMode(music2_Pin, INPUT);/*pinMode(pin,mode)用以配置引脚为输出或输出模式，它是一个无返回值函数，函数有两个参数pin和mode，pin参数表示所要配置的引脚，mode参数表示设置的模式—INPUT（输入）或OUTPUT（输出）。*/
+
+  key_init();
+
+  audio_pause();
+
+  audio_init(DEVICE_Flash, MODE_loopOne, music_vol); //初始化mp3模块
+}
+
+void loop()//根据按键按下情况发送串口指令控制Audio播放、暂停、切歌
+ {
+  if (key_get(music1_Pin, 0))
+  {
+    delay(200);//程序执行延时200ms
+    play_pause = !play_pause;//若true则false，若false则true
+  }
+  if (play_change != play_pause)//如果两变量真值不同
+  {
+    play_change = play_pause;
+    if (play_pause)//如果播放暂停为true
+      audio_play();//音乐播放
+    else//如果播放暂停为false
+      audio_pause();//音乐暂停
+  }
+  if (key_get(music2_Pin, 0))
+audio_down();//音乐停止
+}
+#include "OurSpark.h"
+ 
+#define PIXEL_PIN    A0    // Digital IO pin connected to the NeoPixels.
+#define PIXEL_COUNT  6
+
+ColorLEDController LEDController1(PIXEL_COUNT, PIXEL_PIN);//PIXEL_COUNT表示连的LED的数量；PIXEL_PIN表示LED灯所连的引脚；
+Thermo_Hygrometer rhermo_hygrometer;
+
+#define temp1    28//#define定义常量
+#define temp2    30
+#define temp3    32
+ 
+float sensor_tem;//float定义基本数据单精度常量
+void TemRead();
+
+void setup() {
+  Serial.begin(9600);//初始化串口通信，并设置波特率9600
+}
+ 
+void loop() {
+  TemRead();//调用自定义函数
+  if (sensor_tem <= temp1)//if判断语句
+    LEDController1.SetColorForAll(0, 255, 0, true);//绿色
+ 
+  else if (sensor_tem > temp1 && sensor_tem <= temp2)//三个逻辑运算符，>表示大于，&&表示逻辑关系“与”，<=表示大于等于
+    LEDController1.SetColorForAll(0, 0, 255, true);//蓝色
+ 
+  else if (sensor_tem > temp2 && sensor_tem <= temp3)
+    LEDController1.SetColorForAll(255, 255, 0, true);//黄色
+ 
+  else
+    LEDController1.SetColorForAll(255, 0, 0, true);//红色
+}
+
+void TemRead()
+{
+  sensor_tem = rhermo_hygrometer.ReadTem();//把获得的温度值赋给变量sensor_tem
+  Serial.println(sensor_tem);//将数据从Arduino传递到PC且单独占据一行，此数据可在串口监视器中看到
+  Serial.print("--");   
+  Serial.println(rhermo_hygrometer.ReadRH());
+  delay(100);
+}
